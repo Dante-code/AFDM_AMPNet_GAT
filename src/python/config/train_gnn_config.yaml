@@ -1,0 +1,33 @@
+# Unified AFDM training config for AMP-GNN / AMP-GAT
+
+data:
+  train_dataset_path: "../../afdm_train.mat"
+  val_dataset_path: "../../afdm_val.mat"
+  test_dataset_path: "../../afdm_test.mat"
+  dataset_meta_path: "../../dataset_meta.yaml"
+  SNR_train: 15
+  l_max: 5
+  k_max: 2
+
+configs:
+  - name: "amp_gnn_baseline"
+    model:
+      model_type: "amp_gnn"
+      n_iter: 6
+      n_u: 10
+      n_h: 14
+      n_conv: 4
+      n_mlp_hidden: 22
+      damp: 1.0
+      n_heads: 1
+      attn_dropout: 0.0
+      use_edge_attr: false
+      edge_attr_mode: "gram"
+    train:
+      batch_size: 32
+      val_batch_size: 64
+      lr: 5.0e-5
+      n_epoch: 100
+      max_grad_norm: 1.0
+      scheduler_factor: 0.5
+      scheduler_patience: 2
