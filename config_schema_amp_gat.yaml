@@ -1,40 +1,51 @@
-# AMP-GAT 实验的草图配置结构与示例。
-# 本文件仅用于设计说明，不会覆盖 backup/python/config/train_config.yaml。
+# AFDM AMP-GNN / AMP-GAT training config schema (aligned with current code)
+#
+# Used by:
+# - src/python/train_afdm.py
+# - src/python/eval_ber_afdm.py
+# - src/python/afdm_utils.py
+#
+# Notes:
+# 1) Paths are resolved relative to the config file directory.
+# 2) data.dataset_path is deprecated and rejected by current code.
+# 3) metadata must match split files (N/P/QAM_order/l_max/k_max and test SNR set).
 
 data:
-  SNR_train: 15
-  l_max: 5
-  k_max: 2
+  # Required paths
+  train_dataset_path: "../../data/snr_14db/afdm_train_snr_14db.mat"
+  val_dataset_path: "../../data/snr_14db/afdm_val_snr_14db.mat"
+  test_dataset_path: "../../data/snr_14db/afdm_test_snr_10db_16db.mat"
+  dataset_meta_path: "../../data/snr_14db/dataset_meta.yaml"
+
+  # Optional experiment tags (not used for file loading)
+  SNR_train: 14
+  l_max: 2
+  k_max: 3
 
 configs:
   - name: "amp_gat_default"
     model:
-      # 必选模型类型
-      model_type: "amp_gat"   # 可选: amp_gnn, amp_gat
-
-      # 核心迭代与隐藏层规模
+      # Required
+      model_type: "amp_gat"   # amp_gnn | amp_gat
       n_iter: 6
-      n_u: 12
-      n_h: 12
-      n_conv: 2
-      n_mlp_hidden: 16
+      n_u: 10
+      n_h: 14
+      n_conv: 4
+      n_mlp_hidden: 22
 
-      # AMP+GAT 专属参数
-      damp: 0.7               # [0,1]，1.0 表示不启用阻尼
+      # AMP-GAT options
+      damp: 1.0
       n_heads: 2
       attn_dropout: 0.0
       use_edge_attr: true
       edge_attr_mode: "gram_triplet"   # gram | gram_triplet
 
-      # 可选扩展开关
-      use_ce_loss: false
-      ce_weight: 0.1
-
     train:
+      # Required
       batch_size: 32
       val_batch_size: 64
       lr: 5.0e-5
-      n_epoch: 45
+      n_epoch: 100
       max_grad_norm: 1.0
       scheduler_factor: 0.5
       scheduler_patience: 2
@@ -43,22 +54,23 @@ configs:
     model:
       model_type: "amp_gnn"
       n_iter: 6
-      n_u: 12
-      n_h: 12
-      n_conv: 2
-      n_mlp_hidden: 16
+      n_u: 10
+      n_h: 14
+      n_conv: 4
+      n_mlp_hidden: 22
+
+      # These fields are ignored by amp_gnn but allowed for a unified schema
       damp: 1.0
       n_heads: 1
       attn_dropout: 0.0
       use_edge_attr: false
       edge_attr_mode: "gram"
-      use_ce_loss: false
-      ce_weight: 0.0
+
     train:
       batch_size: 32
       val_batch_size: 64
       lr: 5.0e-5
-      n_epoch: 45
+      n_epoch: 100
       max_grad_norm: 1.0
       scheduler_factor: 0.5
       scheduler_patience: 2
