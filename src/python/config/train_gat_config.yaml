@@ -1,11 +1,11 @@
 # Unified AFDM training config for AMP-GNN / AMP-GAT
 
 data:
-  train_dataset_path: "../../afdm_train.mat"
-  val_dataset_path: "../../afdm_val.mat"
-  test_dataset_path: "../../afdm_test.mat"
-  dataset_meta_path: "../../dataset_meta.yaml"
-  SNR_train: 15
+  train_dataset_path: "../../data/snr_14db/afdm_train_snr_14db.mat"
+  val_dataset_path: "../../data/snr_14db/afdm_val_snr_14db.mat"
+  test_dataset_path: "../../data/snr_14db/afdm_test_snr_10db_16db.mat"
+  dataset_meta_path: "../../data/snr_14db/dataset_meta.yaml"
+  SNR_train: 14
   l_max: 5
   k_max: 2
 

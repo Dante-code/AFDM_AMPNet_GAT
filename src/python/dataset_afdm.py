@@ -3,6 +3,7 @@ AFDM dataset loaders for split-based files and metadata yaml.
 """
 from __future__ import annotations
 
+import os
 import numpy as np
 import h5py
 import yaml
@@ -55,7 +56,7 @@ def _split_keys(split: str) -> dict[str, str]:
 
 def _extract_common_from_mat_dict(data: dict) -> dict:
     out = {}
-    for key in ("N", "P", "QAM_order", "l_max", "k_max", "c1", "c2"):
+    for key in ("N", "P", "QAM_order", "l_max", "k_max", "SNR_dB", "c1", "c2"):
         if key in data:
             out[key] = int(data[key].flatten()[0]) if key in {"N", "P", "QAM_order", "l_max", "k_max"} else float(
                 data[key].flatten()[0]
@@ -65,7 +66,7 @@ def _extract_common_from_mat_dict(data: dict) -> dict:
 
 def _extract_common_from_h5(f) -> dict:
     out = {}
-    for key in ("N", "P", "QAM_order", "l_max", "k_max", "c1", "c2"):
+    for key in ("N", "P", "QAM_order", "l_max", "k_max", "SNR_dB", "c1", "c2"):
         if key in f:
             val = _load_scalar_from_h5(f, key)
             out[key] = int(val) if key in {"N", "P", "QAM_order", "l_max", "k_max"} else float(val)
@@ -151,8 +152,17 @@ def validate_split_against_meta(split_data: dict, split: str, meta: dict, data_p
         raise ValueError("Metadata missing key: dataset.splits")
     if split not in splits:
         raise ValueError(f"Metadata missing split section: dataset.splits.{split}")
+    expected_file = splits[split].get("file")
+    if not isinstance(expected_file, str) or not expected_file.strip():
+        raise ValueError(f"Metadata missing key: dataset.splits.{split}.file")
+    actual_file = os.path.basename(data_path)
+    if actual_file != expected_file:
+        raise ValueError(
+            f"File mismatch for split={split}: config path points to {actual_file}, "
+            f"but metadata expects {expected_file} (file: {data_path})"
+        )
 
-    for key in ("N", "P", "QAM_order"):
+    for key in ("N", "P", "QAM_order", "l_max", "k_max"):
         if key not in common:
             raise ValueError(f"Metadata missing key: dataset.common.{key}")
         if key not in split_data:
@@ -160,6 +170,16 @@ def validate_split_against_meta(split_data: dict, split: str, meta: dict, data_p
         if int(split_data[key]) != int(common[key]):
             raise ValueError(
                 f"Parameter mismatch for {key}: split file={split_data[key]} vs metadata={common[key]} (file: {data_path})"
+            )
+    if split in {"train", "val"}:
+        if "snr_train_db" not in common:
+            raise ValueError("Metadata missing key: dataset.common.snr_train_db")
+        if "SNR_dB" not in split_data:
+            raise ValueError(f"Split data missing key in {data_path}: SNR_dB")
+        if int(round(float(split_data["SNR_dB"]))) != int(round(float(common["snr_train_db"]))):
+            raise ValueError(
+                "Parameter mismatch for snr_train_db: "
+                f"split file={split_data['SNR_dB']} vs metadata={common['snr_train_db']} (file: {data_path})"
             )
 
     split_count = split_data.get(f"n_{split}")

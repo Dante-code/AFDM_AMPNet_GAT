@@ -8,9 +8,9 @@ clear;
 
 %% ===== User Config =====
 split_mode = "test";  % "train" | "val" | "test"
-output_dir = "./data/";      % usually src/
+output_root = "./data";
 train_mat_name = "afdm_train_snr_14db";
-test_mat_name = "afdm_test_snr_14db";
+test_mat_name = "afdm_test_snr_10db_16db";
 val_mat_name = "afdm_val_snr_14db";
 dataset_meta_yaml_name = "dataset_meta";
 N = 128;
@@ -28,6 +28,8 @@ n_val = 30000;
 n_test = 30000;
 SNR_test = [10, 12, 14, 16];
 %% =======================
+
+output_dir = fullfile(output_root, sprintf("snr_%ddb", round(SNR_dB)));
 
 if ~exist(output_dir, "dir")
     mkdir(output_dir);

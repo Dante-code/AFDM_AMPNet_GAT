@@ -1,5 +1,5 @@
 # Unified AFDM training config for AMP-GNN / AMP-GAT
-
+# for data with SNR = 14 dB 
 data:
   train_dataset_path: "../../data/snr_14db/afdm_train_snr_14db.mat"
   val_dataset_path: "../../data/snr_14db/afdm_val_snr_14db.mat"
@@ -10,19 +10,19 @@ data:
   k_max: 2
 
 configs:
-  - name: "amp_gnn_baseline"
+  - name: "amp_gat_default"
     model:
-      model_type: "amp_gnn"
+      model_type: "amp_gat"
       n_iter: 6
       n_u: 10
       n_h: 14
       n_conv: 4
       n_mlp_hidden: 22
       damp: 1.0
-      n_heads: 1
+      n_heads: 2
       attn_dropout: 0.0
-      use_edge_attr: false
-      edge_attr_mode: "gram"
+      use_edge_attr: true
+      edge_attr_mode: "gram_triplet"
     train:
       batch_size: 32
       val_batch_size: 64
