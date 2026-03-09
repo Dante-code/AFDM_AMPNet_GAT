@@ -1,38 +1,41 @@
-# AMP+GAT 混合检测草图
+已按你给的清单实施完成，当前状态已经对齐 `src/data/snr_xxdb` 组织方式。
 
-## 目标
-本草图用于在现有 AFDM AMP-GNN 代码基础上，给出一份“决策完整”的 AMP（外环）与 GAT（图推理内环）融合蓝图，不修改 `backup/python/*` 下的生产代码。
+**已修改**
+1. 修正 `gat_snr14db_config.yaml` 路径与 `SNR_train`
+- [gat_snr14db_config.yaml](E:\code\AFDM_AMPNet_GAT\src\python\config\gat_snr14db_config.yaml:4)
+- train/val 文件名改为 `afdm_train_snr_14db.mat` / `afdm_val_snr_14db.mat`
+- `dataset_meta_path` 改为 `../../data/snr_14db/dataset_meta.yaml`
+- `SNR_train` 改为 `14`
 
-## 范围
-- 仅包含设计与伪代码。
-- 不改动 `backup/python/*` 的实现。
-- 输出文件仅位于 `./draft`。
+2. 同步更新通用配置，避免误用旧路径
+- [train_gat_config.yaml](E:\code\AFDM_AMPNet_GAT\src\python\config\train_gat_config.yaml:4)
+- [train_gnn_config.yaml](E:\code\AFDM_AMPNet_GAT\src\python\config\train_gnn_config.yaml:4)
+- 两个文件都改为指向 `../../data/snr_14db/...`，并将 `SNR_train` 改为 `14`
 
-## 当前方案与目标方案对比
+3. MATLAB 默认输出目录按 `SNR_dB` 自动分桶
+- [generate_afdm_dataset.m](E:\code\AFDM_AMPNet_GAT\src\generate_afdm_dataset.m:11)
+- 新增 `output_root`，并自动生成 `output_dir = ./data/snr_<SNR_dB>db`
+- metadata 继续写到该目录下（`dataset_meta.yaml`）
+- `test_mat_name` 保持 `afdm_test_snr_10db_16db`，与当前测试集文件命名一致
 
-| 项目 | 当前 AMP-GNN | 目标 AMP-GAT |
-|---|---|---|
-| 外层迭代 | AMP <-> GNN | AMP <-> GAT |
-| 图聚合方式 | MLP 求和聚合 | 掩码稀疏注意力聚合 |
-| 邻居加权 | 隐式/共享权重 | 按边学习的注意力权重 |
-| 图输入 | `adj` | `adj` + 可选 `edge_attr` |
-| 阻尼 | Python 路径无显式阻尼 | 显式可配置 `damp` |
-| 配置键 | `n_iter, n_u, ...` | 新增 `model_type, n_heads, attn_dropout, damp, use_edge_attr` |
+4. Python 增强 metadata 一致性校验
+- [dataset_afdm.py](E:\code\AFDM_AMPNet_GAT\src\python\dataset_afdm.py:145)
+- 新增校验：
+  - `l_max/k_max` 一致性
+  - `snr_train_db`（train/val）一致性
+  - metadata 的 `splits.<split>.file` 与 config 指向文件 basename 必须一致
+- 同时支持读取并携带 `SNR_dB` 字段用于上述校验
 
-## 与现有工程的关系
-- 现有基线模块：
-  - `backup/python/amp_linear.py`
-  - `backup/python/gnn_module.py`
-  - `backup/python/amp_gnn_detector.py`
-  - `backup/python/train_afdm.py`
-  - `backup/python/config/train_config.yaml`
-- 本草图说明这些模块在 AMP-GAT 下应如何演进，同时保持 AMP 数学形式与 AFDM 数据格式（`x,y,H,sigma2`）兼容。
+5. 新增并对齐 `snr_14db` 目录下 metadata
+- [dataset_meta.yaml](E:\code\AFDM_AMPNet_GAT\src\data\snr_14db\dataset_meta.yaml:1)
+- `splits.test.file` 已与实际文件名统一为 `afdm_test_snr_10db_16db.mat`
 
-## 阅读顺序
-1. `amp_gat_architecture.md`
-2. `module_change_map.md`
-3. `pseudocode_amp_gat_detector.md`
-4. `pseudocode_gat_module.md`
-5. `pseudocode_training_pipeline.md`
-6. `config_schema_amp_gat.yaml`
-7. `ablation_and_test_plan.md`
+**验证结果**
+- 已确认 `src/data/snr_14db/` 下存在：
+  - `afdm_train_snr_14db.mat`
+  - `afdm_val_snr_14db.mat`
+  - `afdm_test_snr_10db_16db.mat`
+  - `dataset_meta.yaml`
+- Python 关键脚本已做语法解析检查通过（`ast.parse`）。
+
+如果你愿意，我下一步可以再帮你跑一轮“训练入口 + 评估入口”的实际启动检查（只跑到数据加载与配置校验阶段）。
