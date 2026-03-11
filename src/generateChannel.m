@@ -12,11 +12,11 @@ function chan = generateChannel(N, P, l_max, k_max)
     kappa = -0.5 + rand(P, 1);
 
     % 功率谱 σ_p^2 ∝ exp(-0.1 l_p)，再归一化（贴论文仿真设置）
-    pow_unnorm = exp(-0.1 * double(lp));
-    pow_norm   = pow_unnorm / sum(pow_unnorm);
+    % pow_unnorm = exp(-0.1 * double(lp));
+    % pow_norm   = pow_unnorm / sum(pow_unnorm);
 
     % 复高斯增益 h_p ~ CN(0, σ_p^2)
-    hp = (randn(P,1) + 1j*randn(P,1)) .* sqrt(pow_norm / 2);
+    hp = (randn(P,1) + 1j*randn(P,1)) .* sqrt(P / 2);
 
     chan.N     = N;
     chan.P     = P;

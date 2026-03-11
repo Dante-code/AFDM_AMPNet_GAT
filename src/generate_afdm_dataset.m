@@ -10,9 +10,10 @@ clear;
 split_mode = "test";  % "train" | "val" | "test"
 output_root = "./data";
 train_mat_name = "afdm_train_snr_14db";
-test_mat_name = "afdm_test_snr_10db_16db";
+test_mat_name = "afdm_test_snr_8db_16db";
 val_mat_name = "afdm_val_snr_14db";
 dataset_meta_yaml_name = "dataset_meta";
+dataset_id = 1;
 N = 128;
 P = 4;
 l_max = 2;
@@ -26,10 +27,10 @@ c2 = pi / 50;
 n_train = 30000;
 n_val = 30000;
 n_test = 30000;
-SNR_test = [10, 12, 14, 16];
+SNR_test = [8, 10, 12, 14, 16];
 %% =======================
 
-output_dir = fullfile(output_root, sprintf("snr_%ddb", round(SNR_dB)));
+output_dir = fullfile(output_root, sprintf("set%d_snr_%ddb", dataset_id,round(SNR_dB)));
 
 if ~exist(output_dir, "dir")
     mkdir(output_dir);

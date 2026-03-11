@@ -20,7 +20,7 @@ function [x_daf, y_daf, H_eff, chan, sigma2] = simulateAFDM(N, c1, c2, P, l_max,
 
     Es = mean(abs(xvec).^2);
     SNR_lin = 10.^(SNR_dB/10);
-    sigma2  = Es / SNR_lin;
+    sigma2  = 1 / SNR_lin;
 
     noise = sqrt(sigma2/2) * (randn(N,1) + 1j*randn(N,1));
     yvec = H_eff * xvec + noise;

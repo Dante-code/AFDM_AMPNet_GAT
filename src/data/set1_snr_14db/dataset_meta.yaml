@@ -1,7 +1,7 @@
 dataset:
   version: 1
   generated_by: generate_afdm_dataset.m
-  updated_at: '2026-03-09 17:03:50'
+  updated_at: '2026-03-10 15:48:25'
   common:
     N: 128
     P: 4
@@ -19,6 +19,6 @@ dataset:
       file: afdm_val_snr_14db.mat
       count: 30000
     test:
-      file: afdm_test_snr_10db_16db.mat
+      file: afdm_test_snr_8db_16db.mat
       count: 30000
-      snr_test_db: [10, 12, 14, 16]
+      snr_test_db: [8, 10, 12, 14, 16]

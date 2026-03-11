@@ -1,0 +1,107 @@
+# GAT-OTFS training config
+# 对应论文: "Sparse Graph Attention Network Based Signal Detection for OTFS System"
+#
+# 用法:
+#   python train_gat_otfs.py -c config/gat_otfs_config.yaml
+#   python train_gat_otfs.py -c config/gat_otfs_config.yaml --synthetic  (无 .mat 数据时)
+#
+# 数据路径说明:
+#   - 路径相对于本配置文件所在目录解析
+#   - 复用现有 AFDM 数据格式 (x, y, H, sigma2)
+#   - 使用 --synthetic 可跳过数据加载, 用随机数据做冒烟测试
+
+data:
+  # AFDM 数据路径 (可选, --synthetic 模式下忽略)
+  train_dataset_path: "../../data/snr_14db/afdm_train_snr_14db.mat"
+  val_dataset_path: "../../data/snr_14db/afdm_val_snr_14db.mat"
+  test_dataset_path: "../../data/snr_14db/afdm_test_snr_10db_16db.mat"
+  dataset_meta_path: "../../data/snr_14db/dataset_meta.yaml"
+
+  # 合成数据 fallback 参数
+  N_dim_half: 16   # N, 使得 n_dim = 2*N = 32
+
+configs:
+  # ============================================================
+  # 论文默认配置
+  # ============================================================
+  - name: "gat_otfs_paper_default"
+    model:
+      # 论文 Section IV 指定的超参数
+      F: 8              # 节点特征维度
+      F_prime: 16        # 注意力升维后维度 (论文称 data augmentation 后 F'=16)
+      T: 10              # 迭代层数
+      Nh1: 64            # MLP 第一隐层
+      Nh2: 32            # MLP 第二隐层
+      S: 2               # 星座点实部集合大小 (QPSK)
+      adj_eps: 1.0e-8    # 邻接矩阵非零判定阈值
+      add_self_loop: true
+
+    train:
+      # 论文 Section IV 指定的训练参数
+      batch_size: 32
+      val_batch_size: 64
+      lr: 1.0e-3                 # Adam 初始学习率
+      n_epoch: 200               # 论文: 200 epochs
+      max_grad_norm: 1.0         # 梯度裁剪
+      scheduler_factor: 0.5      # ReduceLROnPlateau 衰减因子
+      scheduler_patience: 10     # patience (论文未指定, 此为合理默认)
+      l2_weight: 0.0             # 纯交叉熵 (不加 L2)
+      label_smoothing: 0.0       # 不使用标签平滑
+
+      # 合成数据模式参数
+      n_train_synthetic: 1024    # 论文: 1280 * 0.8 = 1024 训练样本
+      n_val_synthetic: 256       # 论文: 1280 * 0.2 = 256 验证样本
+
+  # ============================================================
+  # 快速冒烟测试 (参数缩小, 用于验证流程)
+  # ============================================================
+  - name: "gat_otfs_smoke_test"
+    model:
+      F: 4
+      F_prime: 8
+      T: 3
+      Nh1: 16
+      Nh2: 8
+      S: 2
+      adj_eps: 1.0e-8
+      add_self_loop: true
+
+    train:
+      batch_size: 16
+      val_batch_size: 32
+      lr: 1.0e-3
+      n_epoch: 5
+      max_grad_norm: 1.0
+      scheduler_factor: 0.5
+      scheduler_patience: 2
+      l2_weight: 0.0
+      label_smoothing: 0.0
+      n_train_synthetic: 128
+      n_val_synthetic: 32
+
+  # ============================================================
+  # 混合损失变体 (CE + L2)
+  # ============================================================
+  - name: "gat_otfs_mixed_loss"
+    model:
+      F: 8
+      F_prime: 16
+      T: 10
+      Nh1: 64
+      Nh2: 32
+      S: 2
+      adj_eps: 1.0e-8
+      add_self_loop: true
+
+    train:
+      batch_size: 32
+      val_batch_size: 64
+      lr: 1.0e-3
+      n_epoch: 200
+      max_grad_norm: 1.0
+      scheduler_factor: 0.5
+      scheduler_patience: 10
+      l2_weight: 0.5             # CE + 0.5 * L2
+      label_smoothing: 0.0
+      n_train_synthetic: 1024
+      n_val_synthetic: 256

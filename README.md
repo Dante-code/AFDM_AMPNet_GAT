@@ -55,3 +55,41 @@ py -3 src/python/train_afdm.py -c src/python/config/gat_snr14db_config.yaml
 ```bash
 py -3 src/python/eval_ber_afdm.py -c src/python/config/gat_snr14db_config.yaml
 ```
+
+## cmp_otfs_gat_paper 实验
+
+配置文件：
+
+`src/python/config/gat_otfs_config.yaml`
+
+默认训练命令：
+
+```bash
+py -3 src/python/cmp_otfs_gat_paper/train_gat_otfs.py
+```
+
+指定配置：
+
+```bash
+py -3 src/python/cmp_otfs_gat_paper/train_gat_otfs.py -c src/python/config/gat_otfs_config.yaml
+```
+
+使用 synthetic 兜底数据：
+
+```bash
+py -3 src/python/cmp_otfs_gat_paper/train_gat_otfs.py --synthetic
+```
+
+最小依赖（cmp 实验）：
+
+- `torch`
+- `numpy`
+- `scipy`
+- `h5py`
+- `pyyaml`
+
+示例安装：
+
+```bash
+py -3 -m pip install torch numpy scipy h5py pyyaml
+```
