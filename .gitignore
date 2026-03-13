@@ -1,2 +1,6 @@
 *.mat
 *.asv
+.idea/
+.vscode/
+__pycache__/
+*.pyc
