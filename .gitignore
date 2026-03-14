@@ -4,3 +4,4 @@
 .vscode/
 __pycache__/
 *.pyc
+/src/python/cmp_otfs_gat_paper/
