@@ -57,7 +57,7 @@ class AMPGNNDetector(nn.Module):
 
         # 初始化
         x_hat = torch.zeros(B, n, device=device)
-        nu_x = torch.full((B, n), 1.0, device=device)
+        nu_x = torch.full((B, n), 0.5, device=device)
         z = y.clone()
         nu_z = torch.bmm((H ** 2), nu_x.unsqueeze(-1)).squeeze(-1) + eps
 
