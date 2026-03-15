@@ -7,7 +7,7 @@
 clear;
 
 %% ===== User Config =====
-split_mode = "test";  % "train" | "val" | "test"
+split_mode = "train";  % "train" | "val" | "test"
 output_root = "./data";
 train_mat_name = "afdm_train_snr_14db";
 test_mat_name = "afdm_test_snr_8db_16db";

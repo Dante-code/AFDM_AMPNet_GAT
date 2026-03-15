@@ -1,0 +1,25 @@
+dataset:
+  version: 1
+  generated_by: generate_afdm_dataset.m
+  updated_at: '2026-03-15 21:12:53'
+  common:
+    N: 128
+    P: 4
+    QAM_order: 4
+    l_max: 2
+    k_max: 3
+    kv: 1
+    c1: 0.03515625
+    c2: 0.06283185307179587
+    snr_train_db: 14
+  splits:
+    train:
+      file: afdm_train_snr_14db.mat
+      count: 30000
+    val:
+      file: afdm_val_snr_14db.mat
+      count: 30000
+    test:
+      file: afdm_test_snr_8db_16db.mat
+      count: 30000
+      snr_test_db: [8, 10, 12, 14, 16]
