@@ -31,7 +31,7 @@ function chan = generateChannel(N, P, l_max, k_max, kv)
     % pow_norm   = pow_unnorm / sum(pow_unnorm);
 
     % 复高斯增益 h_p ~ CN(0, σ_p^2)
-    hp = (randn(P,1) + 1j*randn(P,1)) .* sqrt(P / 2);
+    hp = (randn(P,1) + 1j*randn(P,1)) .* sqrt(1 / 2 / P);
 
     chan.N     = N;
     chan.P     = P;
