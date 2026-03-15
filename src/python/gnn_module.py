@@ -39,11 +39,11 @@ class GNNModule(nn.Module):
 
         # 初始特征: [y^T h_i, h_i^T h_i] -> n_u
         self.W1 = nn.Linear(2, n_u)
-        self.b1 = nn.Parameter(torch.zeros(n_u))
+        # self.b1 = nn.Parameter(torch.zeros(n_u))
 
         # 消息聚合 MLP: 输入 [u_i, u_j, e_ij] 拼接后聚合，维度 3*n_u
         self.msg_mlp = nn.Sequential(
-            nn.Linear(3 * n_u, n_mlp_hidden),
+            nn.Linear(2 * n_u + 1, n_mlp_hidden),
             nn.ReLU(),
             nn.Linear(n_mlp_hidden, n_u),
         )
@@ -53,7 +53,7 @@ class GNNModule(nn.Module):
 
         # 输出层
         self.W2 = nn.Linear(n_h, n_u)
-        self.b2 = nn.Parameter(torch.zeros(n_u))
+        # self.b2 = nn.Parameter(torch.zeros(n_u))
 
         # Readout MLP: n_u -> N_Q (softmax)
         self.readout = nn.Sequential(
@@ -78,7 +78,7 @@ class GNNModule(nn.Module):
         yh = torch.bmm(y.unsqueeze(1), H).squeeze(1)   # (B, n)
         hh = (H ** 2).sum(dim=1)                        # (B, n) 即 h_i^T h_i
         feat = torch.stack([yh, hh], dim=-1)             # (B, n, 2)
-        u = self.W1(feat) + self.b1                     # (B, n, n_u)
+        u = self.W1(feat)  # + self.b1                     # (B, n, n_u)
 
         # 边权 e_ij = h_i^T h_j
         G = torch.bmm(H.transpose(1, 2), H)
@@ -89,8 +89,8 @@ class GNNModule(nn.Module):
             # Propagation: m_i = f_theta(sum_{j in N(i)} [u_i, u_j, e_ij])
             u_i = u.unsqueeze(2).expand(-1, -1, n, -1)   # (B, n, n, n_u)
             u_j = u.unsqueeze(1).expand(-1, n, -1, -1)   # (B, n, n, n_u)
-            e_ij = G.unsqueeze(-1).expand(-1, -1, -1, self.n_u)
-            msg_j2i = torch.cat([u_i, u_j, e_ij], dim=-1)  # (B, n, n, 3*n_u)
+            e_ij = G.unsqueeze(-1)                           # (B, n, n, 1)
+            msg_j2i = torch.cat([u_i, u_j, e_ij], dim=-1)  # (B, n, n, 2*n_u+1)
 
             # 只对 adj[b,i,j]=1 的 j 聚合
             msg_j2i = msg_j2i * adj.unsqueeze(-1)
@@ -101,7 +101,7 @@ class GNNModule(nn.Module):
             gru_in = torch.cat([m, a_i], dim=-1)
             s = self.gru(gru_in.reshape(B * n, -1), s.reshape(B * n, -1))
             s = s.reshape(B, n, -1)
-            u = self.W2(s) + self.b2
+            u = self.W2(s)  # + self.b2
 
         # Readout: softmax -> p(x_i=s), x_hat = sum s*p, nu_x = sum (s-x_hat)^2 * p
         logits = self.readout(u)  # (B, n, N_Q)
