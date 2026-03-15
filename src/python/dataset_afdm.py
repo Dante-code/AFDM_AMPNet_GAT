@@ -56,9 +56,9 @@ def _split_keys(split: str) -> dict[str, str]:
 
 def _extract_common_from_mat_dict(data: dict) -> dict:
     out = {}
-    for key in ("N", "P", "QAM_order", "l_max", "k_max", "SNR_dB", "c1", "c2"):
+    for key in ("N", "P", "QAM_order", "l_max", "k_max", "kv", "SNR_dB", "c1", "c2"):
         if key in data:
-            out[key] = int(data[key].flatten()[0]) if key in {"N", "P", "QAM_order", "l_max", "k_max"} else float(
+            out[key] = int(data[key].flatten()[0]) if key in {"N", "P", "QAM_order", "l_max", "k_max", "kv"} else float(
                 data[key].flatten()[0]
             )
     return out
@@ -66,10 +66,10 @@ def _extract_common_from_mat_dict(data: dict) -> dict:
 
 def _extract_common_from_h5(f) -> dict:
     out = {}
-    for key in ("N", "P", "QAM_order", "l_max", "k_max", "SNR_dB", "c1", "c2"):
+    for key in ("N", "P", "QAM_order", "l_max", "k_max", "kv", "SNR_dB", "c1", "c2"):
         if key in f:
             val = _load_scalar_from_h5(f, key)
-            out[key] = int(val) if key in {"N", "P", "QAM_order", "l_max", "k_max"} else float(val)
+            out[key] = int(val) if key in {"N", "P", "QAM_order", "l_max", "k_max", "kv"} else float(val)
     return out
 
 
@@ -170,6 +170,13 @@ def validate_split_against_meta(split_data: dict, split: str, meta: dict, data_p
         if int(split_data[key]) != int(common[key]):
             raise ValueError(
                 f"Parameter mismatch for {key}: split file={split_data[key]} vs metadata={common[key]} (file: {data_path})"
+            )
+    if "kv" in common:
+        if "kv" not in split_data:
+            raise ValueError(f"Split data missing key in {data_path}: kv")
+        if int(split_data["kv"]) != int(common["kv"]):
+            raise ValueError(
+                f"Parameter mismatch for kv: split file={split_data['kv']} vs metadata={common['kv']} (file: {data_path})"
             )
     if split in {"train", "val"}:
         if "snr_train_db" not in common:

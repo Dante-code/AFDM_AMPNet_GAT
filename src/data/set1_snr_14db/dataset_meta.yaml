@@ -8,6 +8,7 @@ dataset:
     QAM_order: 4
     l_max: 2
     k_max: 3
+    kv: 1
     c1: 0.03515625
     c2: 0.06283185307179587
     snr_train_db: 14

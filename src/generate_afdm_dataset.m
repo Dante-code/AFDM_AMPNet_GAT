@@ -13,7 +13,7 @@ train_mat_name = "afdm_train_snr_14db";
 test_mat_name = "afdm_test_snr_8db_16db";
 val_mat_name = "afdm_val_snr_14db";
 dataset_meta_yaml_name = "dataset_meta";
-dataset_id = 1;
+dataset_id = 2;
 N = 128;
 P = 4;
 l_max = 2;
@@ -21,7 +21,8 @@ k_max = 3;
 SNR_dB = 14;
 QAM_order = 4;  % QPSK
 xi_v = 1;
-c1 = (2 * (k_max + xi_v) + 1) / (2 * N);
+kv = xi_v; % kv 对应论文中的 xi_v
+c1 = (2 * (k_max + kv) + 1) / (2 * N);
 c2 = pi / 50;
 
 n_train = 30000;
@@ -50,14 +51,16 @@ if split_mode == "train"
     y_arr = complex(zeros(n_cur, N), zeros(n_cur, N));
     H_arr = complex(zeros(n_cur, N, N), zeros(n_cur, N, N));
     sigma2_arr = zeros(n_cur, 1);
+    loc_main_arr = zeros(n_cur, P);
 
     for i = 1:n_cur
-        [x_daf, y_daf, H_eff, ~, sigma2] = ...
-            simulateAFDM(N, c1, c2, P, l_max, k_max, SNR_dB, QAM_order);
+        [x_daf, y_daf, H_eff, ~, sigma2, heff_info] = ...
+            simulateAFDM(N, c1, c2, P, l_max, k_max, SNR_dB, QAM_order, kv);
         x_arr(i, :) = x_daf(:).';
         y_arr(i, :) = y_daf(:).';
         H_arr(i, :, :) = H_eff;
         sigma2_arr(i) = sigma2;
+        loc_main_arr(i, :) = reshape(heff_info.loc_main, 1, []);
         if mod(i, 1000) == 0
             fprintf("  train: %d/%d\n", i, n_cur);
         end
@@ -68,9 +71,10 @@ if split_mode == "train"
     y_daf_train_arr = y_arr; %#ok<NASGU>
     H_eff_train_arr = H_arr; %#ok<NASGU>
     sigma2_train = sigma2_arr; %#ok<NASGU>
+    loc_main_train_arr = loc_main_arr; %#ok<NASGU>
     save(out_path, ...
-        "x_daf_train_arr", "y_daf_train_arr", "H_eff_train_arr", "sigma2_train", ...
-        "N", "P", "QAM_order", "SNR_dB", "n_train", "l_max", "k_max", "c1", "c2", "-v7.3");
+        "x_daf_train_arr", "y_daf_train_arr", "H_eff_train_arr", "sigma2_train", "loc_main_train_arr", ...
+        "N", "P", "QAM_order", "SNR_dB", "n_train", "l_max", "k_max", "kv", "c1", "c2", "-v7.3");
 end
 
 if split_mode == "val"
@@ -79,14 +83,16 @@ if split_mode == "val"
     y_arr = complex(zeros(n_cur, N), zeros(n_cur, N));
     H_arr = complex(zeros(n_cur, N, N), zeros(n_cur, N, N));
     sigma2_arr = zeros(n_cur, 1);
+    loc_main_arr = zeros(n_cur, P);
 
     for i = 1:n_cur
-        [x_daf, y_daf, H_eff, ~, sigma2] = ...
-            simulateAFDM(N, c1, c2, P, l_max, k_max, SNR_dB, QAM_order);
+        [x_daf, y_daf, H_eff, ~, sigma2, heff_info] = ...
+            simulateAFDM(N, c1, c2, P, l_max, k_max, SNR_dB, QAM_order, kv);
         x_arr(i, :) = x_daf(:).';
         y_arr(i, :) = y_daf(:).';
         H_arr(i, :, :) = H_eff;
         sigma2_arr(i) = sigma2;
+        loc_main_arr(i, :) = reshape(heff_info.loc_main, 1, []);
         if mod(i, 500) == 0
             fprintf("  val: %d/%d\n", i, n_cur);
         end
@@ -97,9 +103,10 @@ if split_mode == "val"
     y_daf_val_arr = y_arr; %#ok<NASGU>
     H_eff_val_arr = H_arr; %#ok<NASGU>
     sigma2_val = sigma2_arr; %#ok<NASGU>
+    loc_main_val_arr = loc_main_arr; %#ok<NASGU>
     save(out_path, ...
-        "x_daf_val_arr", "y_daf_val_arr", "H_eff_val_arr", "sigma2_val", ...
-        "N", "P", "QAM_order", "SNR_dB", "n_val", "l_max", "k_max", "c1", "c2", "-v7.3");
+        "x_daf_val_arr", "y_daf_val_arr", "H_eff_val_arr", "sigma2_val", "loc_main_val_arr", ...
+        "N", "P", "QAM_order", "SNR_dB", "n_val", "l_max", "k_max", "kv", "c1", "c2", "-v7.3");
 end
 
 if split_mode == "test"
@@ -109,6 +116,7 @@ if split_mode == "test"
     H_arr = complex(zeros(n_cur, N, N), zeros(n_cur, N, N));
     sigma2_arr = zeros(n_cur, 1);
     SNR_test_vec = zeros(n_cur, 1); %#ok<NASGU>
+    loc_main_arr = zeros(n_cur, P);
 
     n_test_per_snr = ceil(n_test / length(SNR_test));
     idx = 1;
@@ -117,13 +125,14 @@ if split_mode == "test"
             if idx > n_cur
                 break;
             end
-            [x_daf, y_daf, H_eff, ~, sigma2] = ...
-                simulateAFDM(N, c1, c2, P, l_max, k_max, SNR_test(s), QAM_order);
+            [x_daf, y_daf, H_eff, ~, sigma2, heff_info] = ...
+                simulateAFDM(N, c1, c2, P, l_max, k_max, SNR_test(s), QAM_order, kv);
             x_arr(idx, :) = x_daf(:).';
             y_arr(idx, :) = y_daf(:).';
             H_arr(idx, :, :) = H_eff;
             sigma2_arr(idx) = sigma2;
             SNR_test_vec(idx) = SNR_test(s);
+            loc_main_arr(idx, :) = reshape(heff_info.loc_main, 1, []);
             idx = idx + 1;
         end
         fprintf("  test SNR=%d dB done\n", SNR_test(s));
@@ -134,13 +143,14 @@ if split_mode == "test"
     y_daf_test_arr = y_arr; %#ok<NASGU>
     H_eff_test_arr = H_arr; %#ok<NASGU>
     sigma2_test = sigma2_arr; %#ok<NASGU>
+    loc_main_test_arr = loc_main_arr; %#ok<NASGU>
     save(out_path, ...
-        "x_daf_test_arr", "y_daf_test_arr", "H_eff_test_arr", "sigma2_test", "SNR_test_vec", ...
-        "N", "P", "QAM_order", "n_test", "l_max", "k_max", "c1", "c2", "-v7.3");
+        "x_daf_test_arr", "y_daf_test_arr", "H_eff_test_arr", "sigma2_test", "SNR_test_vec", "loc_main_test_arr", ...
+        "N", "P", "QAM_order", "n_test", "l_max", "k_max", "kv", "c1", "c2", "-v7.3");
 end
 
 meta_path = fullfile(output_dir, strcat(dataset_meta_yaml_name,".yaml"));
-write_dataset_meta_yaml(meta_path, N, P, QAM_order, l_max, k_max, c1, c2, ...
+write_dataset_meta_yaml(meta_path, N, P, QAM_order, l_max, k_max, kv, c1, c2, ...
     SNR_dB, n_train, n_val, n_test, SNR_test, ...
     struct("train_mat_name", train_mat_name, "val_mat_name", val_mat_name, "test_mat_name", test_mat_name));
 
@@ -148,10 +158,10 @@ fprintf("Saved split file for %s in %s\n", split_mode, output_dir);
 fprintf("Saved metadata: %s\n", meta_path);
 
 
-function write_dataset_meta_yaml(path, N, P, QAM_order, l_max, k_max, c1, c2, ...
+function write_dataset_meta_yaml(path, N, P, QAM_order, l_max, k_max, kv, c1, c2, ...
         SNR_dB, n_train, n_val, n_test, SNR_test, opts)
     
-    if nargin < 14, opts = struct; end
+    if nargin < 15, opts = struct; end
     train_mat_name = getopt(opts, "train_mat_name", "afdm_train");
     val_mat_name = getopt(opts, "val_mat_name", "afdm_val");
     test_mat_name = getopt(opts, "test_mat_name", "afdm_test");
@@ -175,6 +185,7 @@ function write_dataset_meta_yaml(path, N, P, QAM_order, l_max, k_max, c1, c2, ..
     fprintf(fid, "    QAM_order: %d\n", QAM_order);
     fprintf(fid, "    l_max: %d\n", l_max);
     fprintf(fid, "    k_max: %d\n", k_max);
+    fprintf(fid, "    kv: %d\n", kv);
     fprintf(fid, "    c1: %.16g\n", c1);
     fprintf(fid, "    c2: %.16g\n", c2);
     fprintf(fid, "    snr_train_db: %.16g\n", SNR_dB);
