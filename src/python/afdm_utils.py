@@ -43,11 +43,57 @@ def build_index_sets(H: np.ndarray, eps: float = 1e-12):
     return I_list, L_list
 
 
-def prepare_sample(x_vec: np.ndarray, y_vec: np.ndarray, H_eff: np.ndarray, sigma2: float):
+def build_idi_mask_from_loc_main(
+    H_real: np.ndarray,
+    loc_main: np.ndarray,
+    N: int,
+    kv: int,
+    eps: float = 1e-12,
+) -> np.ndarray:
+    """
+    根据 loc_main 和 kv 构建实值域 IDI 掩码。
+    返回 mask_idi: (2N, 2N), True 表示扩展项（IDI）位置。
+    """
+    n = 2 * N
+    if kv <= 0:
+        return np.zeros((n, n), dtype=bool)
+
+    loc_main = np.asarray(loc_main).reshape(-1).astype(np.int64)
+    p_idx = np.arange(N, dtype=np.int64).reshape(-1, 1)  # (N,1)
+    q_main = (p_idx + loc_main.reshape(1, -1)) % N  # (N,P)
+
+    main_mask_complex = np.zeros((N, N), dtype=bool)
+    row_idx = np.repeat(np.arange(N, dtype=np.int64), q_main.shape[1])
+    col_idx = q_main.reshape(-1)
+    main_mask_complex[row_idx, col_idx] = True
+
+    main_mask_real = np.zeros((n, n), dtype=bool)
+    main_mask_real[:N, :N] = main_mask_complex
+    main_mask_real[:N, N:] = main_mask_complex
+    main_mask_real[N:, :N] = main_mask_complex
+    main_mask_real[N:, N:] = main_mask_complex
+
+    nonzero_mask = np.abs(H_real) > eps
+    mask_idi = nonzero_mask & (~main_mask_real)
+    return mask_idi
+
+
+def prepare_sample(
+    x_vec: np.ndarray,
+    y_vec: np.ndarray,
+    H_eff: np.ndarray,
+    sigma2: float,
+    loc_main: np.ndarray | None = None,
+    N: int | None = None,
+    kv: int = 0,
+    return_mask: bool = False,
+):
     """
     将 (x_vec, y_vec, H_eff) 转为论文实值形式
     x_vec, y_vec: (N,) DAF 域 1D 向量
-    返回: x, y, H, sigma2, I_list, L_list
+    返回:
+      - 默认: x, y, H, sigma2, I_list, L_list
+      - return_mask=True: 额外返回 mask_idi
     """
     x_vec = np.asarray(x_vec).flatten()
     y_vec = np.asarray(y_vec).flatten()
@@ -58,7 +104,14 @@ def prepare_sample(x_vec: np.ndarray, y_vec: np.ndarray, H_eff: np.ndarray, sigm
 
     sigma2_real = sigma2 / 2.0
     I_list, L_list = build_index_sets(H)
-    return x, y, H, sigma2_real, I_list, L_list
+    if not return_mask:
+        return x, y, H, sigma2_real, I_list, L_list
+
+    mask_idi = None
+    n_complex = len(x_vec) if N is None else int(N)
+    if loc_main is not None and int(kv) > 0:
+        mask_idi = build_idi_mask_from_loc_main(H, np.asarray(loc_main), n_complex, int(kv))
+    return x, y, H, sigma2_real, I_list, L_list, mask_idi
 
 
 def _resolve_required_path(data_cfg: dict, config_dir: str, key: str) -> str:

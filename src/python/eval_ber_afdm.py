@@ -46,6 +46,7 @@ def build_model(model_cfg: dict, n_dim: int, device: torch.device):
         model = AMPGNNDetector(
             n_dim=n_dim,
             n_iter=n_iter,
+            use_idi_approx=bool(model_cfg.get("use_idi_approx", False)),
             n_u=n_u,
             n_h=n_h,
             n_conv=n_conv,
@@ -74,14 +75,22 @@ def build_model(model_cfg: dict, n_dim: int, device: torch.device):
     raise ValueError(f"Unsupported model_type: {model_type}")
 
 
-def forward_model(model, model_type: str, model_cfg: dict, y: torch.Tensor, h: torch.Tensor, sigma2: torch.Tensor):
+def forward_model(
+    model,
+    model_type: str,
+    model_cfg: dict,
+    y: torch.Tensor,
+    h: torch.Tensor,
+    sigma2: torch.Tensor,
+    mask_idi: torch.Tensor | None = None,
+):
     adj = build_adjacency(h)
     if model_type == "amp_gat":
         edge_attr = None
         if bool(model_cfg.get("use_edge_attr", True)):
             edge_attr = build_edge_attr(h, mode=model_cfg.get("edge_attr_mode", "gram_triplet"))
         return model(y, h, sigma2, adj, edge_attr=edge_attr)
-    return model(y, h, sigma2, adj)
+    return model(y, h, sigma2, adj, mask_idi=mask_idi)
 
 
 def eval_one_config(
@@ -120,6 +129,8 @@ def eval_one_config(
     snr_vec = raw["SNR_test_vec"]
 
     ber_by_snr: dict[int, list[float]] = {}
+    kv = int(raw.get("kv", 0))
+    loc_key = "loc_main_test"
     with torch.no_grad():
         for i in range(n_test):
             x_vec = raw["x_daf_test"][i]
@@ -127,13 +138,26 @@ def eval_one_config(
             h_eff = raw["H_eff_test"][i]
             sigma2 = raw["sigma2_test"][i]
 
-            x, y, h, sigma2_r, _, _ = afdm_utils.prepare_sample(x_vec, y_vec, h_eff, sigma2)
+            loc_main = raw[loc_key][i] if (kv > 0 and loc_key in raw) else None
+            x, y, h, sigma2_r, _, _, mask_idi = afdm_utils.prepare_sample(
+                x_vec,
+                y_vec,
+                h_eff,
+                sigma2,
+                loc_main=loc_main,
+                N=n,
+                kv=kv,
+                return_mask=True,
+            )
             x_t = torch.tensor(x, dtype=torch.float32).unsqueeze(0).to(device)
             y_t = torch.tensor(y, dtype=torch.float32).unsqueeze(0).to(device)
             h_t = torch.tensor(h, dtype=torch.float32).unsqueeze(0).to(device)
             sigma2_t = torch.tensor([sigma2_r], dtype=torch.float32).to(device)
+            mask_idi_t = None
+            if mask_idi is not None:
+                mask_idi_t = torch.tensor(mask_idi, dtype=torch.bool).unsqueeze(0).to(device)
 
-            x_hat = forward_model(model, model_type, model_cfg, y_t, h_t, sigma2_t)
+            x_hat = forward_model(model, model_type, model_cfg, y_t, h_t, sigma2_t, mask_idi=mask_idi_t)
             ber = compute_ber(x_t, x_hat, 1, n)
             snr = int(snr_vec[i])
             ber_by_snr.setdefault(snr, []).append(ber)

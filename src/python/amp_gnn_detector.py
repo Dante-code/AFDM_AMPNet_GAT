@@ -7,6 +7,8 @@ import torch.nn as nn
 import amp_linear
 import gnn_module
 import numpy as np
+from graph_features import build_adjacency
+from idi_approx import compute_idi_stats, normalize_signal_and_channel
 
 
 def real_to_complex_hard(x_hat: torch.Tensor, M: int, N: int) -> torch.Tensor:
@@ -33,14 +35,15 @@ class AMPGNNDetector(nn.Module):
     AMP-GNN 检测器
     """
 
-    def __init__(self, n_dim: int, n_iter: int = 3, **gnn_kwargs):
+    def __init__(self, n_dim: int, n_iter: int = 3, use_idi_approx: bool = False, **gnn_kwargs):
         super().__init__()
         self.n_dim = n_dim
         self.n_iter = n_iter
+        self.use_idi_approx = bool(use_idi_approx)
         self.gnn = gnn_module.GNNModule(n_dim, **gnn_kwargs)
 
     def forward(self, y: torch.Tensor, H: torch.Tensor, sigma2: torch.Tensor,
-                adj: torch.Tensor) -> torch.Tensor:
+                adj: torch.Tensor, mask_idi: torch.Tensor | None = None) -> torch.Tensor:
         """
         y: (B, 2MN)
         H: (B, 2MN, 2MN)
@@ -58,13 +61,21 @@ class AMPGNNDetector(nn.Module):
         z = y.clone()
         nu_z = torch.bmm((H ** 2), nu_x.unsqueeze(-1)).squeeze(-1) + eps
 
-        for t in range(self.n_iter):
+        for _ in range(self.n_iter):
+            if self.use_idi_approx and mask_idi is not None:
+                mu_zeta, sigma2_zeta = compute_idi_stats(H, mask_idi, x_hat, nu_x, sigma2, eps)
+                y_t, H_t = normalize_signal_and_channel(y, H, mask_idi, mu_zeta, sigma2_zeta, eps)
+                sigma2_t = torch.full_like(sigma2, 0.5)
+                adj_t = build_adjacency(H_t)
+            else:
+                y_t, H_t, sigma2_t, adj_t = y, H, sigma2, adj
+
             # AMP 步
             z, nu_z, r, nu_r = amp_linear.amp_linear_step(
-                y, H, x_hat, nu_x, z, nu_z, sigma2, eps
+                y_t, H_t, x_hat, nu_x, z, nu_z, sigma2_t, eps
             )
             # GNN 步
-            x_hat, nu_x = self.gnn(y, H, r, nu_r, adj)
+            x_hat, nu_x = self.gnn(y_t, H_t, r, nu_r, adj_t)
 
         return x_hat
 

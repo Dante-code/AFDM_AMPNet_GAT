@@ -49,6 +49,7 @@ def _split_keys(split: str) -> dict[str, str]:
         "x": f"x_daf_{split}_arr",
         "y": f"y_daf_{split}_arr",
         "h": f"H_eff_{split}_arr",
+        "loc_main": f"loc_main_{split}_arr",
         "sigma2": f"sigma2_{split}",
         "n": f"n_{split}",
     }
@@ -94,6 +95,9 @@ def load_afdm_split_mat(path: str, split: str) -> dict:
             keys["n"]: n,
             "N": N,
         }
+        loc_main_key = keys["loc_main"]
+        if loc_main_key in data:
+            out[f"loc_main_{split}"] = data[loc_main_key]
         out.update(_extract_common_from_mat_dict(data))
         if split == "test":
             if "SNR_test_vec" not in data:
@@ -128,6 +132,12 @@ def load_afdm_split_mat(path: str, split: str) -> dict:
             "N": N,
         }
         out.update(_extract_common_from_h5(f))
+        loc_main_key = keys["loc_main"]
+        if loc_main_key in f:
+            loc_main = np.array(f[loc_main_key])
+            if loc_main.ndim == 2 and loc_main.shape[1] == n and loc_main.shape[0] != n:
+                loc_main = np.transpose(loc_main)
+            out[f"loc_main_{split}"] = loc_main
         if split == "test":
             if "SNR_test_vec" not in f:
                 raise ValueError(f"{path} missing required key for test split: SNR_test_vec")

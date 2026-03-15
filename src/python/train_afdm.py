@@ -47,8 +47,22 @@ class AFDMDataset(Dataset):
         y_vec = self.raw[f"y_daf_{split}"][idx]
         H_eff = self.raw[f"H_eff_{split}"][idx]
         sigma2 = self.raw[f"sigma2_{split}"][idx]
-        x, y, H, sigma2_r, _, _ = afdm_utils.prepare_sample(x_vec, y_vec, H_eff, sigma2)
-        return x, y, H, sigma2_r
+        loc_main = None
+        loc_main_key = f"loc_main_{split}"
+        kv = int(self.raw.get("kv", 0))
+        if kv > 0 and loc_main_key in self.raw:
+            loc_main = self.raw[loc_main_key][idx]
+        x, y, H, sigma2_r, _, _, mask_idi = afdm_utils.prepare_sample(
+            x_vec,
+            y_vec,
+            H_eff,
+            sigma2,
+            loc_main=loc_main,
+            N=int(self.raw["N"]),
+            kv=kv,
+            return_mask=True,
+        )
+        return x, y, H, sigma2_r, mask_idi
 
 
 def collate_fn(batch):
@@ -56,11 +70,16 @@ def collate_fn(batch):
     y = np.stack([b[1] for b in batch])
     H = np.stack([b[2] for b in batch])
     sigma2 = np.array([b[3] for b in batch])
+    mask_idi_t = None
+    if len(batch) > 0 and batch[0][4] is not None:
+        mask_idi = np.stack([b[4] for b in batch])
+        mask_idi_t = torch.tensor(mask_idi, dtype=torch.bool)
     return (
         torch.tensor(x, dtype=torch.float32),
         torch.tensor(y, dtype=torch.float32),
         torch.tensor(H, dtype=torch.float32),
         torch.tensor(sigma2, dtype=torch.float32),
+        mask_idi_t,
     )
 
 
@@ -85,7 +104,13 @@ def build_model(model_cfg: dict, n_dim: int):
 
     if model_type == "amp_gnn":
         model = AMPGNNDetector(
-            n_dim, n_iter=n_iter, n_u=n_u, n_h=n_h, n_conv=n_conv, n_mlp_hidden=n_mlp_hidden
+            n_dim,
+            n_iter=n_iter,
+            use_idi_approx=bool(model_cfg.get("use_idi_approx", False)),
+            n_u=n_u,
+            n_h=n_h,
+            n_conv=n_conv,
+            n_mlp_hidden=n_mlp_hidden,
         )
         return model
 
@@ -108,7 +133,7 @@ def build_model(model_cfg: dict, n_dim: int):
     raise ValueError(f"Unsupported model_type: {model_type}")
 
 
-def forward_model(model, model_cfg: dict, y, H, sigma2):
+def forward_model(model, model_cfg: dict, y, H, sigma2, mask_idi=None):
     model_type = model_cfg.get("model_type", "amp_gnn")
     adj = build_adjacency(H)
     if model_type == "amp_gat":
@@ -116,7 +141,7 @@ def forward_model(model, model_cfg: dict, y, H, sigma2):
         if bool(model_cfg.get("use_edge_attr", True)):
             edge_attr = build_edge_attr(H, mode=model_cfg.get("edge_attr_mode", "gram_triplet"))
         return model(y, H, sigma2, adj, edge_attr=edge_attr)
-    return model(y, H, sigma2, adj)
+    return model(y, H, sigma2, adj, mask_idi=mask_idi)
 
 
 def run_one_config(
@@ -159,10 +184,12 @@ def run_one_config(
     for epoch in range(n_epoch):
         model.train()
         total_loss = 0.0
-        for x, y, H, sigma2 in train_loader:
+        for x, y, H, sigma2, mask_idi in train_loader:
             x, y, H, sigma2 = x.to(device), y.to(device), H.to(device), sigma2.to(device)
+            if mask_idi is not None:
+                mask_idi = mask_idi.to(device)
             opt.zero_grad()
-            x_hat = forward_model(model, model_cfg, y, H, sigma2)
+            x_hat = forward_model(model, model_cfg, y, H, sigma2, mask_idi=mask_idi)
             loss = compute_l2_loss(x, x_hat)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_grad_norm)
@@ -177,9 +204,11 @@ def run_one_config(
         val_ber = 0.0
         n_val_samples = 0
         with torch.no_grad():
-            for x, y, H, sigma2 in val_loader:
+            for x, y, H, sigma2, mask_idi in val_loader:
                 x, y, H, sigma2 = x.to(device), y.to(device), H.to(device), sigma2.to(device)
-                x_hat = forward_model(model, model_cfg, y, H, sigma2)
+                if mask_idi is not None:
+                    mask_idi = mask_idi.to(device)
+                x_hat = forward_model(model, model_cfg, y, H, sigma2, mask_idi=mask_idi)
                 val_loss += compute_l2_loss(x, x_hat).item()
                 val_ber += compute_ber(x, x_hat, 1, N) * len(x)
                 n_val_samples += len(x)
@@ -303,8 +332,13 @@ def main():
         "n_val": val_raw["n_val"],
         "N": train_raw["N"],
         "P": train_raw.get("P", meta.get("common", {}).get("P")),
+        "kv": train_raw.get("kv", meta.get("common", {}).get("kv", 0)),
         "QAM_order": train_raw.get("QAM_order", meta.get("common", {}).get("QAM_order")),
     }
+    if "loc_main_train" in train_raw:
+        raw["loc_main_train"] = train_raw["loc_main_train"]
+    if "loc_main_val" in val_raw:
+        raw["loc_main_val"] = val_raw["loc_main_val"]
     N = raw["N"]
     n_dim = 2 * N
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

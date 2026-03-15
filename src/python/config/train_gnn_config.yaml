@@ -18,6 +18,30 @@ configs:
       n_h: 14
       n_conv: 4
       n_mlp_hidden: 22
+      use_idi_approx: false
+      damp: 1.0
+      n_heads: 1
+      attn_dropout: 0.0
+      use_edge_attr: false
+      edge_attr_mode: "gram"
+    train:
+      batch_size: 32
+      val_batch_size: 64
+      lr: 5.0e-5
+      n_epoch: 100
+      max_grad_norm: 1.0
+      scheduler_factor: 0.5
+      scheduler_patience: 2
+
+  - name: "amp_gnn_idi"
+    model:
+      model_type: "amp_gnn"
+      n_iter: 6
+      n_u: 10
+      n_h: 14
+      n_conv: 4
+      n_mlp_hidden: 22
+      use_idi_approx: true
       damp: 1.0
       n_heads: 1
       attn_dropout: 0.0
