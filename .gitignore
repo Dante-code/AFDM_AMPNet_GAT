@@ -2,6 +2,10 @@
 *.asv
 .idea/
 .vscode/
-__pycache__/
+/src/python/__pycache__/
 *.pyc
 .cursor/
+*.pt
+*.cpython-39.pyc
+*.cpython-314.pyc
+*.csv
